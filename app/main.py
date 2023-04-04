@@ -11,6 +11,7 @@ from typing import List
 import datetime
 from typing import List
 
+from db import mongodb
 
 app = FastAPI()
 
@@ -32,13 +33,21 @@ def root():
 @app.post("/pdf/upload")
 async def upload_pdf(file: UploadFile):
     
-    #Temporary save the file to process
+    #Temporary save the file to process 
     tmp_path = save_upload_file_tmp(file)
     try:
         reader = PdfReader(tmp_path)
         number_of_pages = len(reader.pages)
         page = reader.pages[0]
         text = page.extract_text()
+
+        data = dict()
+        data["name"] = file.filename
+        data["upload_time"] = datetime.datetime.utcnow()
+        data["size"] = file.size
+        data["pages"] = number_of_pages
+
+        pdf_data = await mongodb["pdf"].insert_one(data)
 
     finally:
         tmp_path.unlink()  # Delete the temp file
