@@ -14,3 +14,9 @@ To deactivate, just type deactivate
 
 Then install dependencies using pip install -r requirements.txt
 
+uvicorn main:app --reload
+
+# Configure the location of MongoDB database:
+export MONGODB_URL="mongodb+srv://asgh1234515:xFsj4s8HrzvMyOA3@cluster0.eyo7hbj.mongodb.net?retryWrites=true&w=majority"
+
+export MONGODB_PASSWORD="xFsj4s8HrzvMyOA3"
