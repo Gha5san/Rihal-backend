@@ -1,17 +1,20 @@
 from fastapi import FastAPI, File, UploadFile, Body, status
 from starlette.middleware.cors import CORSMiddleware
 
-from PyPDF2 import PdfReader
+from PyPDF2 import PdfReader, PdfWriter
 import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from pdf2image import convert_from_path, convert_from_bytes
+
 
 from typing import List
 
 import datetime
 from typing import List
 
-from db import mongodb, upload_file_minio, delete_file_minio
+from db import (mongodb, upload_file_minio, delete_file_minio, 
+                download_file_minio, get_file_tmp_minio)
 from minio.error import S3Error
 
 from bson import ObjectId
@@ -107,4 +110,34 @@ async def delete_pdf(id: str):
     except S3Error as exc:
         print("error occurred.", exc)
 
+    return {}
+
+@app.get("/pdf/download/{id}")
+async def download_pdf(id: str):
+
+    if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
+        return {}
+
+    download_file_minio("../resources/output/"+pdf_details.get("name"), id+".pdf")
+
+    return {}
+
+@app.get("/pdf/download/{id}/{page}")
+async def download_pdf_page(id: str, page:int):
+
+    if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
+        return {}
+
+    try:
+        response = get_file_tmp_minio(id+".pdf")
+        images = convert_from_bytes(response.read())
+        name = pdf_details.get("name").split(".")[0]
+        images[page-1].save(f"../resources/output/{name}_{page}.jpg", "JPEG")
+    # Read data from response.
+    finally:
+        response.close()
+        response.release_conn()
+
+
+    
     return {}

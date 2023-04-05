@@ -8,6 +8,8 @@ h11==0.14.0
 idna==3.4
 minio==7.1.14
 motor==3.1.2
+pdf2image==1.16.3
+Pillow==9.5.0
 pydantic==1.10.7
 pymongo==4.3.3
 pypdf2==3.0.1

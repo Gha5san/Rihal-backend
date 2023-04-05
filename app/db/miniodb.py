@@ -27,3 +27,8 @@ def delete_file_minio(filename):
     client.remove_object(
         db_name, filename
     )
+
+def get_file_tmp_minio(filname):
+    return client.get_object(
+        db_name, filname
+    )
