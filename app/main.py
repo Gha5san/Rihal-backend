@@ -11,8 +11,10 @@ from typing import List
 import datetime
 from typing import List
 
-from db import mongodb, upload_file_minio
+from db import mongodb, upload_file_minio, delete_file_minio
 from minio.error import S3Error
+
+from bson import ObjectId
 
 app = FastAPI()
 
@@ -43,7 +45,7 @@ async def upload_pdf(file: UploadFile):
 
         data = dict()
         data["name"] = file.filename
-        data["upload_time"] = datetime.datetime.utcnow()
+        data["upload_time"] = str(datetime.datetime.utcnow())
         data["size"] = file.size
         data["pages"] = number_of_pages
 
@@ -76,3 +78,18 @@ def save_upload_file_tmp(upload_file: UploadFile) -> Path:
     finally:
         upload_file.file.close()
     return tmp_path
+
+
+@app.delete("/pdf/delete/{id}")
+async def delete_pdf(id: str):
+    
+    await mongodb["pdf"].delete_one({
+        "_id": ObjectId(id)
+    })
+
+    try:
+        delete_file_minio(id+".pdf")
+    except S3Error as exc:
+        print("error occurred.", exc)
+
+    return {}
