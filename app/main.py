@@ -15,6 +15,14 @@ from db import mongodb, upload_file_minio, delete_file_minio
 from minio.error import S3Error
 
 from bson import ObjectId
+import json
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
 
 app = FastAPI()
 
@@ -79,6 +87,13 @@ def save_upload_file_tmp(upload_file: UploadFile) -> Path:
         upload_file.file.close()
     return tmp_path
 
+@app.get("/pdf/all")
+async def get_all_files():
+    
+    cursor = mongodb["pdf"].find()
+    docs = await cursor.to_list(None)
+    
+    return json.loads(JSONEncoder().encode(docs))
 
 @app.delete("/pdf/delete/{id}")
 async def delete_pdf(id: str):
