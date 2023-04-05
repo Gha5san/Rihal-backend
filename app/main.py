@@ -11,7 +11,8 @@ from typing import List
 import datetime
 from typing import List
 
-from db import mongodb
+from db import mongodb, upload_file_minio
+from minio.error import S3Error
 
 app = FastAPI()
 
@@ -38,8 +39,7 @@ async def upload_pdf(file: UploadFile):
     try:
         reader = PdfReader(tmp_path)
         number_of_pages = len(reader.pages)
-        page = reader.pages[0]
-        text = page.extract_text()
+        
 
         data = dict()
         data["name"] = file.filename
@@ -49,11 +49,17 @@ async def upload_pdf(file: UploadFile):
 
         pdf_data = await mongodb["pdf"].insert_one(data)
 
+        file_id = str(pdf_data.inserted_id)
+        try:
+            upload_file_minio(tmp_path, file_id+".pdf")
+        except S3Error as exc:
+            print("error occurred.", exc)
+        
+
     finally:
         tmp_path.unlink()  # Delete the temp file
         
-    return {"filename": file,
-            "content": text}
+    return {"filename": file}
 
 #TODO
 @app.post("/pdf/upload/multiple")
