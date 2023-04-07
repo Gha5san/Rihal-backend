@@ -1,34 +1,40 @@
 from minio import Minio
 
-db_name = "minio-test-tmp"
 
-client = Minio(
-    "play.min.io",
-    access_key="9aWNcZJObWlA9QLl",
-    secret_key="rArfgmcEr4oSW2r7DAmYK2e7RRxwdxBn",
-    secure=True
-)
+class MinIOClient:
 
-found = client.bucket_exists(db_name)
-if not found:
-    client.make_bucket(db_name)
+    def __init__(self, bucket_name):
+        self.name = bucket_name
 
-def upload_file_minio(filepath, filename):
-    client.fput_object(
-        db_name, filename, filepath,
-    )
+        self.client = Minio(
+            "play.min.io",
+            access_key="vlJ8146KQo27SMWu",
+            secret_key="MUemOIf0vkehMjIpb1BhgD0hqccZPf1x",
+            secure=True
+        ) 
+        found = self.client.bucket_exists(self.name)
+        if not found:
+            self.client.make_bucket(self.name)
 
-def download_file_minio(filepath, filename):
-    client.fget_object(
-        db_name, filename, filepath
-    )
+    def upload_file(self, filepath, filename):
+        self.client.fput_object(
+            self.name, filename, filepath,
+        )
 
-def delete_file_minio(filename):
-    client.remove_object(
-        db_name, filename
-    )
+    def download_file(self, filepath, filename):
+        self.client.fget_object(
+            self.name, filename, filepath
+        )
 
-def get_file_tmp_minio(filname):
-    return client.get_object(
-        db_name, filname
-    )
+    def delete_file(self, filename):
+        self.client.remove_object(
+            self.name, filename
+        )
+
+    def get_file_tmp(self, filname):
+        return self.client.get_object(
+            self.name, filname
+        )
+
+
+miniodb = MinIOClient("minio-test-tmp")
