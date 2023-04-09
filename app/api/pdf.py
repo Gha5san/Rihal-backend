@@ -2,9 +2,11 @@ import datetime
 import json
 import shutil
 from pathlib import Path
+from string import punctuation
 from tempfile import NamedTemporaryFile
 from typing import List
 
+import nltk
 from bson import ObjectId
 from fastapi import APIRouter, UploadFile
 from minio.error import S3Error
@@ -28,7 +30,7 @@ class JSONEncoder(json.JSONEncoder):
 @router.get("/all")
 async def get_all_files():
     
-    cursor = mongodb["pdf"].find()
+    cursor = mongodb["pdf"].find({}, {"sentences_id": 0})
     docs = await cursor.to_list(None)
     
     return json.loads(JSONEncoder().encode(docs))
@@ -64,6 +66,57 @@ async def download_pdf_page(id: str, page:int):
     
     return {}
 
+@router.get("/sentences/{id}")
+async def get_pdf_sentences(id: str):
+
+    if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
+        return {}
+
+    sentences = await mongodb["sentences"].find_one({"_id": pdf_details["sentences_id"]}, 
+                                        {"_id": 0})
+    
+    return sentences
+
+@router.get("/top-words/{id}")
+async def get_top_words(id: str):
+    
+    #plural and singular words are considered different
+
+    sentences = await get_pdf_sentences(id)
+
+    #Cast it to lowercase string and remove any punctuations
+    sentences = " ".join(sentences["sentences"]).translate(
+        str.maketrans("", "", punctuation)).lower()
+
+    #Maybe add it as configuration in docker file?
+    nltk.download('stopwords')
+
+    process_words = nltk.tokenize.word_tokenize(sentences)
+    english_stopwords = nltk.corpus.stopwords.words('english')
+    common_words = nltk.FreqDist(
+        w for w in process_words if w not in english_stopwords)
+
+    words = dict()
+    words["top-words"] = dict(enumerate(common_words.most_common(5)))
+    
+    # format {top-words: {0: [word, number of occurrence]}}
+
+    return words
+
+@router.get("/{id}/")
+async def search_pdf(id: str, search: str):
+    sentences = await get_pdf_sentences(id)
+    sentences = sentences["sentences"]
+    
+    total_count = 0
+    search_sentences = list()
+    for sen in sentences:
+        count = sen.lower().count(search)
+        if count:
+            total_count += count
+            search_sentences.append(sen)
+        
+    return {"occurrence": total_count, "sentences": search_sentences}
 
 #TODO background task
 @router.post("/upload")
@@ -74,13 +127,22 @@ async def upload_pdf(file: UploadFile):
     try:
         reader = PdfReader(tmp_path)
         number_of_pages = len(reader.pages)
-        
+        page = reader.pages[0]
+        text = page.extract_text()
+
+        nltk.download('punkt')
+        tokenizer = nltk.data.load('tokenizers/punkt/PY3/english.pickle')
+        sentences = dict()
+        sentences["sentences"] = tokenizer.tokenize(text)
+
+        pdf_sentences = await mongodb["sentences"].insert_one(sentences)
 
         data = dict()
         data["name"] = file.filename
         data["upload_time"] = str(datetime.datetime.utcnow())
         data["size"] = file.size
         data["pages"] = number_of_pages
+        data["sentences_id"] = pdf_sentences.inserted_id
 
         pdf_data = await mongodb["pdf"].insert_one(data)
 
@@ -115,6 +177,14 @@ def save_upload_file_tmp(upload_file: UploadFile) -> Path:
 @router.delete("/delete/{id}")
 async def delete_pdf(id: str):
     
+    
+    if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
+        return {}
+
+    await mongodb["sentences"].delete__one({
+        "_id": pdf_details["sentences_id"]
+    })
+
     await mongodb["pdf"].delete_one({
         "_id": ObjectId(id)
     })
