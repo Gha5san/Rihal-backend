@@ -1,14 +1,14 @@
 import datetime
 import json
 import shutil
-from pathlib import Path
+from pathlib import Path as FilePath
 from string import punctuation
 from tempfile import NamedTemporaryFile
 from typing import List
 
 import nltk
 from bson import ObjectId
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, UploadFile, Path, HTTPException ,status
 from minio.error import S3Error
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
@@ -29,7 +29,7 @@ class JSONEncoder(json.JSONEncoder):
 
 @router.get("/all")
 async def get_all_files():
-    
+
     cursor = mongodb["pdf"].find({}, {"sentences_id": 0})
     docs = await cursor.to_list(None)
     
@@ -40,23 +40,29 @@ async def get_all_files():
 async def download_pdf(id: str):
 
     if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
-        return {}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail = f"No pdf file exists with the given id {id}"
+        )
+    filepath = "../resources/output/"+pdf_details.get("name")
+    miniodb.download_file(filepath, id+".pdf")
 
-    miniodb.download_file("../resources/output/"+pdf_details.get("name"), id+".pdf")
-
-    return {}
+    return {"filepath":filepath}
 
 @router.get("/download/{id}/{page}")
 async def download_pdf_page(id: str, page:int):
 
     if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
-        return {}
-
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail = f"No pdf file exists with the given id {id}"
+        )
     try:
         response = miniodb.get_file_tmp(id+".pdf")
         images = convert_from_bytes(response.read())
         name = pdf_details.get("name").split(".")[0]
-        images[page-1].save(f"../resources/output/{name}_{page}.jpg", "JPEG")
+        filepath = f"../resources/output/{name}_{page}.jpg"
+        images[page-1].save(filepath, "JPEG")
     # Read data from response.
     finally:
         response.close()
@@ -64,13 +70,16 @@ async def download_pdf_page(id: str, page:int):
 
 
     
-    return {}
+    return {"filepath", filepath}
 
 @router.get("/sentences/{id}")
 async def get_pdf_sentences(id: str):
 
     if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
-        return {}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail = f"No pdf file exists with the given id {id}"
+        )
 
     sentences = await mongodb["sentences"].find_one({"_id": pdf_details["sentences_id"]}, 
                                         {"_id": 0})
@@ -121,6 +130,12 @@ async def search_pdf(id: str, search: str):
 #TODO background task
 @router.post("/upload")
 async def upload_pdf(file: UploadFile):
+
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f'File {file.filename} is not pdf',
+        )
     
     #Temporary save the file to process 
     tmp_path = save_upload_file_tmp(file)
@@ -156,32 +171,30 @@ async def upload_pdf(file: UploadFile):
     finally:
         tmp_path.unlink()  # Delete the temp file
         
-    return {"filename": file}
-
-#TODO
-@router.post("/upload/multiple")
-async def upload_pdf_multiple(files: List[UploadFile]):
-    return {"filenames": [file.filename for file in files]}
+    return {"id": file_id}
 
 
-def save_upload_file_tmp(upload_file: UploadFile) -> Path:
+def save_upload_file_tmp(upload_file: UploadFile) -> FilePath:
     try:
-        suffix = Path(upload_file.filename).suffix
+        suffix = FilePath(upload_file.filename).suffix
         with NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             shutil.copyfileobj(upload_file.file, tmp)
-            tmp_path = Path(tmp.name)
+            tmp_path = FilePath(tmp.name)
     finally:
         upload_file.file.close()
     return tmp_path
 
-@router.delete("/delete/{id}")
+@router.delete("/delete/{id}", status_code=status.HTTP_202_ACCEPTED)
 async def delete_pdf(id: str):
     
     
     if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
-        return {}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail = f"No pdf file exists with the given id {id}"
+        )
 
-    await mongodb["sentences"].delete__one({
+    await mongodb["sentences"].delete_one({
         "_id": pdf_details["sentences_id"]
     })
 
@@ -194,4 +207,4 @@ async def delete_pdf(id: str):
     except S3Error as exc:
         print("error occurred.", exc)
 
-    return {}
+    return 
