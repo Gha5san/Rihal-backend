@@ -134,3 +134,6 @@ dmypy.json
 # Output files
 /resources/output/*.pdf
 /resources/output/*.jpg
+
+# Database docker volumes 
+.db

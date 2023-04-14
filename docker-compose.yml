@@ -1,0 +1,45 @@
+version: '3.7'
+services:
+
+  fastapi:
+    container_name: api
+    build:
+      context: .
+      dockerfile: dockerfile 
+    depends_on:
+      - mongodb
+      - miniodb
+    environment:
+      DOWNLOAD_PATH: /app/resources/output
+    volumes:
+      - ./resources/output:/app/resources/output
+    ports:
+      - 8080:8080
+
+  mongodb:
+    container_name: mongodb
+    image: mongo:6
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - 27017:27017
+
+  miniodb:
+    container_name: miniodb 
+    image: minio/minio
+    environment:
+      MINIO_ROOT_USER: root
+      MINIO_ROOT_PASSWORD: password 
+    volumes:
+      - minio_data:/data
+    ports:
+      - 9000:9000 
+      - 9001:9001
+    command: server --console-address ":9001" /data
+
+volumes:
+  mongodb_data:
+  minio_data:

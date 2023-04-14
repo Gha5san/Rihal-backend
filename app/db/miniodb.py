@@ -6,11 +6,12 @@ class MinIOClient:
     def __init__(self, bucket_name):
         self.name = bucket_name
 
+        # secure is false to overcome to avoid ssl error
         self.client = Minio(
-            "play.min.io",
-            access_key="vlJ8146KQo27SMWu",
-            secret_key="MUemOIf0vkehMjIpb1BhgD0hqccZPf1x",
-            secure=True
+            "miniodb:9000",
+            access_key="root",
+            secret_key="password",
+            secure=False
         ) 
         found = self.client.bucket_exists(self.name)
         if not found:

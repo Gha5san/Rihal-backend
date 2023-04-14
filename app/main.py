@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from api.pdf import router as pdf_router
+from app.api.pdf import router as pdf_router
 
 app = FastAPI()
 

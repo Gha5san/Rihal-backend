@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 import shutil
 from pathlib import Path as FilePath
 from string import punctuation
@@ -13,8 +14,8 @@ from minio.error import S3Error
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
 
-from db.miniodb import miniodb
-from db.mongodb import mongodb
+from app.db.miniodb import miniodb
+from app.db.mongodb import mongodb
 
 router = APIRouter(
     prefix="/pdf",
@@ -44,7 +45,8 @@ async def download_pdf(id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"No pdf file exists with the given id {id}"
         )
-    filepath = "../resources/output/"+pdf_details.get("name")
+    filepath = os.getenv("DOWNLOAD_PATH")+"/"+pdf_details.get("name")
+    
     miniodb.download_file(filepath, id+".pdf")
 
     return {"filepath":filepath}
@@ -61,7 +63,8 @@ async def download_pdf_page(id: str, page:int):
         response = miniodb.get_file_tmp(id+".pdf")
         images = convert_from_bytes(response.read())
         name = pdf_details.get("name").split(".")[0]
-        filepath = f"../resources/output/{name}_{page}.jpg"
+        dirpath = os.getenv("DOWNLOAD_PATH")
+        filepath = f"{dirpath}/{name}_p{page}.jpg"
         images[page-1].save(filepath, "JPEG")
     # Read data from response.
     finally:
