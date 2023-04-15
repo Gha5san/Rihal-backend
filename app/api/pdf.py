@@ -59,13 +59,20 @@ async def download_pdf_page(id: str, page:int):
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"No pdf file exists with the given id {id}"
         )
+    
+    if page > pdf_details.get("pages") or page < 1:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail = f"Invalid page number"
+        )
+
     try:
         response = miniodb.get_file_tmp(id+".pdf")
         images = convert_from_bytes(response.read())
         name = pdf_details.get("name").split(".")[0]
-        dirpath = os.getenv("DOWNLOAD_PATH")
-        filepath = f"{dirpath}/{name}_p{page}.jpg"
-        images[page-1].save(filepath, "JPEG")
+        filepath = os.getenv("DOWNLOAD_PATH") + "/" + f"{name}_p{page}.jpg"
+        # # filepath = f"{dirpath}/{name}_p{page}.jpg"
+        # images[page-1].save(filepath, "JPEG")
     # Read data from response.
     finally:
         response.close()
@@ -115,7 +122,7 @@ async def get_top_words(id: str):
 
     return words
 
-@router.get("/{id}/")
+@router.get("/search/{id}/")
 async def search_pdf(id: str, search: str):
     sentences = await get_pdf_sentences(id)
     sentences = sentences["sentences"]
@@ -129,6 +136,25 @@ async def search_pdf(id: str, search: str):
             search_sentences.append(sen)
         
     return {"occurrence": total_count, "sentences": search_sentences}
+
+@router.get("/all/search/")
+async def search_pdf_all(search: str):
+    cursor = mongodb["pdf"].find({}, {"_id": 1})
+    docs = await cursor.to_list(None)
+
+    pdf_list = json.loads(JSONEncoder().encode(docs))
+
+    data = dict() 
+    data["ids"] = list()
+    for pdf in pdf_list:
+        id = pdf["_id"]
+        search_result = await search_pdf(id, search)
+
+        if search_result["occurrence"]:
+            data["ids"].append(id)
+            data[id] = search_result
+
+    return data
 
 #TODO background task
 @router.post("/upload")
