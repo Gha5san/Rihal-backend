@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.pdf import router as pdf_router
 
 app = FastAPI()
@@ -13,6 +14,7 @@ app.add_middleware(
     allow_headers=["*"], # Allows all headers
 )
 
+app.include_router(auth_router)
 app.include_router(pdf_router)
 
 @app.get("/")

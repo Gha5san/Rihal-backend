@@ -9,17 +9,19 @@ from typing import List
 
 import nltk
 from bson import ObjectId
-from fastapi import APIRouter, UploadFile, Path, HTTPException ,status
+from fastapi import APIRouter, UploadFile, Path, HTTPException ,status, Depends
 from minio.error import S3Error
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
 
 from app.db.miniodb import miniodb
 from app.db.mongodb import mongodb
+from app.api.auth   import get_current_active_user
 
 router = APIRouter(
     prefix="/pdf",
     tags=["pdf"],
+    dependencies=[Depends(get_current_active_user)]
 )
 
 class JSONEncoder(json.JSONEncoder):
