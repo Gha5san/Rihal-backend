@@ -9,6 +9,15 @@ from pydantic import BaseModel
 from typing_extensions import Annotated
 
 
+"""
+This code implements an authentication endpoint using FastAPI and JWT. 
+When a user logs in with a valid username and password, an access token is returned. 
+The access token is used to authenticate requests to other endpoints. 
+The code defines a few helper functions to verify passwords, hash passwords, and retrieve user information. 
+There is a fake user database that is used for authentication as programming stubs.
+"""
+
+
 # to get a string like this run:
 # openssl rand -hex 32
 SECRET_KEY = "4ca63aa0754200bb9cf0ddc64f2177cc6ecf5ac306a036c692e9d2c98417c198"
@@ -118,6 +127,15 @@ async def get_current_active_user(
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ):
+    """
+    This route logs a user in and returns an access token.
+
+    Parameters:
+    form_data (Annotated[OAuth2PasswordRequestForm, Depends()]): A json containing the user's login credentials.
+
+    Returns:
+    Token: A JSON response containing an access token and its type.
+    """
     user = authenticate_user(fake_users_db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -137,3 +155,4 @@ async def login_for_access_token(
 #     current_user: Annotated[User, Depends(get_current_active_user)]
 # ):
 #     return current_user
+

@@ -19,5 +19,4 @@ app.include_router(pdf_router)
 
 @app.get("/")
 def root():
-    #Simple API
-    return {"Hello": "World"}
+    return {"Hello": "Rihal!"}
