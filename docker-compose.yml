@@ -9,10 +9,6 @@ services:
     depends_on:
       - mongodb
       - miniodb
-    environment:
-      DOWNLOAD_PATH: /app/resources/output
-    volumes:
-      - ./resources/output:/app/resources/output
     ports:
       - 8080:8080
 

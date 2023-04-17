@@ -10,9 +10,12 @@ from typing import List
 import nltk
 from bson import ObjectId
 from fastapi import APIRouter, UploadFile, Path, HTTPException ,status, Depends
+from fastapi.responses import StreamingResponse
+import io
 from minio.error import S3Error
 from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
+from PIL import Image
 
 from app.db.miniodb import miniodb
 from app.db.mongodb import mongodb
@@ -47,42 +50,44 @@ async def download_pdf(id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"No pdf file exists with the given id {id}"
         )
-    filepath = os.getenv("DOWNLOAD_PATH")+"/"+pdf_details.get("name")
-    
-    miniodb.download_file(filepath, id+".pdf")
+    file_data = miniodb.get_file_tmp(id+".pdf").read()
+    file_name = pdf_details.get("name")
 
-    return {"filepath":filepath}
+    return StreamingResponse(io.BytesIO(file_data), media_type='application/pdf', headers={
+        'Content-Disposition': f'attachment; filename="{file_name}"'
+    })
 
 @router.get("/download/{id}/{page}")
 async def download_pdf_page(id: str, page:int):
-
     if (pdf_details := await mongodb["pdf"].find_one({"_id": ObjectId(id)})) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"No pdf file exists with the given id {id}"
         )
-    
     if page > pdf_details.get("pages") or page < 1:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"Invalid page number"
         )
+    with NamedTemporaryFile(suffix=".pdf") as tmp_file:
+        miniodb.download_file(tmp_file.name, id + ".pdf")
+        pdf_bytes = tmp_file.read()
 
-    try:
-        response = miniodb.get_file_tmp(id+".pdf")
-        images = convert_from_bytes(response.read())
-        name = pdf_details.get("name").split(".")[0]
-        filepath = os.getenv("DOWNLOAD_PATH") + "/" + f"{name}_p{page}.jpg"
-        # # filepath = f"{dirpath}/{name}_p{page}.jpg"
-        # images[page-1].save(filepath, "JPEG")
-    # Read data from response.
-    finally:
-        response.close()
-        response.release_conn()
+        images = convert_from_bytes(pdf_bytes)
+        if page > len(images):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Invalid page number"
+            )
 
+        image_bytes = io.BytesIO()
+        images[page - 1].save(image_bytes, "JPEG")
+        image_bytes.seek(0)
 
-    
-    return {"filepath", filepath}
+        return StreamingResponse(image_bytes, media_type="image/jpeg", headers={
+            "Content-Disposition": f'attachment; filename="{pdf_details.get("name").split(".")[0]}_p{page}.jpg"'
+        })
+
 
 @router.get("/sentences/{id}")
 async def get_pdf_sentences(id: str):
