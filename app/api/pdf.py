@@ -177,7 +177,7 @@ async def get_pdf_sentences(id: str):
 @router.get("/top-words/{id}")
 async def get_top_words(id: str):
     """
-    Retrieves the extracted sentences from a PDF file with the given id.
+    Retrieves the top 5 most frequently occurring words in a PDF file with the given id.
 
     Parameters:
     -----------
@@ -185,8 +185,10 @@ async def get_top_words(id: str):
 
     Returns:
     --------
-    json: A json representing the extracted sentences.
+    json: A json representing top 5 words in that pdf.
     """
+    
+    NUM_OF_WORDS = 5
 
     #plural and singular words are considered different
 
@@ -196,16 +198,18 @@ async def get_top_words(id: str):
     sentences = " ".join(sentences["sentences"]).translate(
         str.maketrans("", "", punctuation)).lower()
 
-    #Maybe add it as configuration in docker file?
-    nltk.download('stopwords')
-
+    # Tokenize the sentences into words
     process_words = nltk.tokenize.word_tokenize(sentences)
+
+    # Retrieve English stopwords
     english_stopwords = nltk.corpus.stopwords.words('english')
+
+    # Compute the frequency distribution of the words, excluding stopwords
     common_words = nltk.FreqDist(
         w for w in process_words if w not in english_stopwords)
 
     words = dict()
-    words["top-words"] = dict(enumerate(common_words.most_common(5)))
+    words["top-words"] = dict(enumerate(common_words.most_common(NUM_OF_WORDS)))
     
     # format {top-words: {0: [word, number of occurrence]}}
 
@@ -306,7 +310,6 @@ async def upload_pdf(file: UploadFile):
         text = page.extract_text()
 
         # Tokenize the text into sentences
-        nltk.download('punkt')
         tokenizer = nltk.data.load('tokenizers/punkt/PY3/english.pickle')
         sentences = dict()
         sentences["sentences"] = tokenizer.tokenize(text)

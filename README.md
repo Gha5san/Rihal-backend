@@ -27,6 +27,11 @@ http://localhost:8080/docs
 http://localhost:8080/redoc
 ```
 
+There is currently no users database, but rather a programming stub. Use the following credentials to get JWT access-token.
+
+* Username: root
+* Password: password
+
 You cold test the API functionality using the documentation pages instead of postman etc...
 
 ---
