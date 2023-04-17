@@ -32,7 +32,9 @@ There is currently no users database, but rather a programming stub. Use the fol
 * Username: root
 * Password: password
 
-You cold test the API functionality using the documentation pages instead of postman etc...
+You could test the API functionality using the documentation pages instead of postman etc...
+
+There are pdf files to play with under resources/example_pdf.
 
 ---
 ### Endpoints

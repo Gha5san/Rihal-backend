@@ -16,4 +16,6 @@ RUN python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
 
 COPY ./app /code/app
 
+COPY ./tests /code/tests
+
 CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8080"]
