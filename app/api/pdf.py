@@ -13,7 +13,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, UploadFile, status
 from fastapi.responses import StreamingResponse
 from minio.error import S3Error
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_bytes, convert_from_path
 from PIL import Image
 from pydantic import BaseModel
 from PyPDF2 import PdfReader
@@ -134,24 +134,20 @@ async def download_pdf_page(id: str, page:int):
             status_code=status.HTTP_404_NOT_FOUND,
             detail = f"Invalid page number"
         )
-    with NamedTemporaryFile(suffix=".pdf") as tmp_file:
-        miniodb.download_file(tmp_file.name, id + ".pdf")
-        pdf_bytes = tmp_file.read()
 
-        images = convert_from_bytes(pdf_bytes)
-        if page > len(images):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Invalid page number"
-            )
-
+    try: 
+        response = miniodb.get_file_tmp(id+".pdf")
+        image = convert_from_bytes(response.read(), first_page=page, last_page=page)
         image_bytes = io.BytesIO()
-        images[page - 1].save(image_bytes, "JPEG")
+        image[0].save(image_bytes, "JPEG")
         image_bytes.seek(0)
+    finally:
+        response.close()
+        response.release_conn()
 
-        return StreamingResponse(image_bytes, media_type="image/jpeg", headers={
-            "Content-Disposition": f'attachment; filename="{pdf_details.get("name").split(".")[0]}_p{page}.jpg"'
-        })
+    return StreamingResponse(image_bytes, media_type="image/jpeg", headers={
+        "Content-Disposition": f'attachment; filename="{pdf_details.get("name").split(".")[0]}_p{page}.jpg"'
+    })
 
 
 @router.get("/sentences/{id}")

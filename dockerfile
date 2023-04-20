@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 RUN python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
 
+# This is required for turning pdf to image 
+RUN apt-get update && apt-get -y install poppler-utils
+
 COPY ./app /code/app
 
 COPY ./tests /code/tests
