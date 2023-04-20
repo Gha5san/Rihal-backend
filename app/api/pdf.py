@@ -1,7 +1,6 @@
 import datetime
 import io
 import json
-import os
 import shutil
 from pathlib import Path as FilePath
 from string import punctuation
@@ -10,17 +9,17 @@ from typing import List
 
 import nltk
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Path, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from minio.error import S3Error
-from pdf2image import convert_from_bytes, convert_from_path
-from PIL import Image
-from pydantic import BaseModel
+from pdf2image import convert_from_bytes
 from PyPDF2 import PdfReader
 
+import app.api.scheme as scheme
 from app.api.auth import get_current_active_user
 from app.db.miniodb import miniodb
 from app.db.mongodb import mongodb
+
 
 router = APIRouter(
     prefix="/pdf",
@@ -79,7 +78,7 @@ async def get_pdf_details(id: str):
             )
     return pdf_details
 
-@router.get("/all")
+@router.get("/all", response_model=List[scheme.GetAll])
 async def get_all_files():
 
     # Excluding the "sentences_id" field from the query
@@ -182,6 +181,17 @@ async def get_top_words(id: str):
     Returns:
     --------
     json: A json representing top 5 words in that pdf.
+    Json in the form of {top-words: 
+                        {0: [word, number of occurrence]
+                         1: [...]
+                         .
+                         .
+                         4: [...]
+                        }}
+
+    Notes:
+    ------
+    Plural and singular words are considered different
     """
     
     NUM_OF_WORDS = 5
